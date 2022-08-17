@@ -32,7 +32,7 @@ final channel = pusher.subscribe('my-channel');
 ### Bind to events
 ```dart
 eventHandler(Object data) async {
-    final jsonData = Map<String, Object>.from(jsonDecode(data));
+    final jsonData = Map<String, dynamic>.from(jsonDecode(data));
 }
 
 channel.bind('my-event', eventHandler);

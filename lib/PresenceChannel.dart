@@ -4,20 +4,20 @@ import 'package:pusher_dart/Channel.dart';
 import 'package:pusher_dart/Connection.dart';
 
 class PresenceChannel extends Channel {
-  Members members;
+  late Members members;
 
-  PresenceChannel(String name, Connection connection, [String data]) : super(name, connection, data);
+  PresenceChannel(String name, Connection connection, [String? data]) : super(name, connection, data);
 
   Future<bool> connect() async {
     this.members = Members();
-    String auth;
-    String channel_data;
+    String? auth;
+    String? channel_data;
     try {
       var data = await super.connection.authenticate(name);
       if (data.containsKey("auth")) auth = data["auth"];
       if (data.containsKey("channel_data")) {
         channel_data = data["channel_data"];
-        members.setMyID(jsonDecode(channel_data)["user_id"]);
+        members.setMyID(jsonDecode(channel_data!)["user_id"]);
       }
     } catch (e) {
       print("Error: ${e.toString()}");
@@ -25,18 +25,18 @@ class PresenceChannel extends Channel {
     return trigger('pusher:subscribe', {'channel': name, 'auth': auth, 'channel_data': super.data ?? channel_data});
   }
 
-  handleChannelMessage(Map<String, Object> message) {
-    String eventName = message["event"];
+  handleChannelMessage(Map<String, dynamic> message) {
+    String eventName = message["event"] as String;
     if (eventName.startsWith("pusher_internal:")) {
       this._handleInternalEvent(message);
     } else {
-      this.broadcast(message['event'], message['data']);
+      this.broadcast(message['event'] as String, message['data']);
     }
   }
 
-  _handleInternalEvent(Map<String, Object> message) {
+  _handleInternalEvent(Map<String, dynamic> message) {
     var eventName = message["event"];
-    var data = jsonDecode(message['data']);
+    var data = jsonDecode(message['data'] as String);
     switch (eventName) {
       case 'pusher_internal:subscription_succeeded':
         this.members.onSubscription(data);
@@ -56,18 +56,18 @@ class PresenceChannel extends Channel {
 
 /** Represents a collection of members of a presence channel. */
 class Members {
-  List<Member> members = List();
-  int count;
-  int myID;
-  Member me;
+  List<Member> members = [];
+  int count = 0;
+  int? myID;
+  Member? me;
 
   Members();
 
   /** Handles subscription data. For internal use only. */
   onSubscription(subscriptionData) {
-    Map<String, Object> hash = subscriptionData["presence"]["hash"];
+    Map<String, dynamic> hash = subscriptionData["presence"]["hash"];
     hash.forEach((key, value) {
-      this.members.add(Member(int.parse(key), value));
+      this.members.add(Member(int.parse(key), value as Map<String, dynamic>));
     });
     this.count = this.members.length;
     this.me = members.firstWhere((member) {
@@ -116,7 +116,7 @@ class Members {
 /** Represents member of a presence channel. */
 class Member {
   int id;
-  Map<String, Object> info;
+  Map<String, dynamic> info;
 
   Member(this.id, this.info);
 }

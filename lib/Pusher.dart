@@ -12,9 +12,7 @@ class Pusher with EventEmitter {
   Connection _connection;
 
   /// Default constructor
-  Pusher(String apiKey, PusherOptions options) {
-    _connection = Connection(apiKey, options);
-  }
+  Pusher({required String apiKey, required PusherOptions options}) : _connection = Connection(apiKey: apiKey, options: options);
 
   /// Connect from pusher
   void connect() {
@@ -30,21 +28,21 @@ class Pusher with EventEmitter {
     return this._connection.isConnected();
   }
 
-  Function connecting(Function callback) {
+  Function connecting(Function(Object?) callback) {
     _connection.bind("connecting", callback);
     return () {
       _connection.unbind("connecting", callback);
     };
   }
 
-  Function connected(Function(Object data) callback) {
+  Function connected(Function(Object? data) callback) {
     _connection.bind("connected", callback);
     return () {
       _connection.unbind("connected", callback);
     };
   }
 
-  Function disconnected(Function callback) {
+  Function disconnected(Function(Object?) callback) {
     _connection.bind("disconnected", callback);
     return () {
       _connection.unbind("disconnected", callback);
@@ -53,11 +51,11 @@ class Pusher with EventEmitter {
 
   /// Get a channel using channel name
   Channel channel(String channelName) {
-    return _connection.channels[channelName];
+    return _connection.channels[channelName]!;
   }
 
   /// Subscribe to a channel using channel name
-  Channel subscribe(String channelName, [String data]) {
+  Channel subscribe(String channelName, [String? data]) {
     return _connection.subscribe(channelName, data);
   }
 
@@ -66,7 +64,7 @@ class Pusher with EventEmitter {
     _connection.unsubscribe(channelName);
   }
 
-  String getSocketId(){
+  String? getSocketId() {
     return _connection.socketId;
   }
 }

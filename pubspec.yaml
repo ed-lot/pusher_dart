@@ -1,13 +1,12 @@
 name: pusher_dart
 description: Unofficial pusher client for dart
 version: 0.2.0
-author: "Prabhakar Bhat <prabhakarbhat@live.com>"
 homepage: https://github.com/jaysson/pusher_dart
 
 environment:
-  sdk: ">=2.1.0 <3.0.0"
+  sdk: ">=2.17.6 <3.0.0"
 
 dependencies:
-  web_socket_channel: ^1.0.14
-  http: ^0.12.0
-  meta: ^1.1.0
+  web_socket_channel: ^2.2.0
+  http: ^0.13.5
+  meta: 1.7.0

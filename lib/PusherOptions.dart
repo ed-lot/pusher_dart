@@ -9,7 +9,7 @@ class PusherAuth {
   final Map<String, String> headers;
 
   /// Default constructor
-  PusherAuth({this.headers});
+  PusherAuth({required this.headers});
 }
 
 /// Class to hold pusher configuration
@@ -35,5 +35,5 @@ class PusherOptions {
   final Duration pingInterval;
 
   /// Default constructor
-  PusherOptions({this.authEndpoint, this.auth, this.cluster = 'mt1', this.host, this.port = 443, this.encrypted = true, this.autoConnect = true, this.pingInterval});
+  PusherOptions({required this.authEndpoint, required this.auth, this.cluster = 'mt1', required this.host, this.port = 443, this.encrypted = true, this.autoConnect = true, required this.pingInterval});
 }
