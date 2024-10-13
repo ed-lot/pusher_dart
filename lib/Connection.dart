@@ -43,7 +43,7 @@ class Connection with EventEmitter {
     if (host.startsWith("http://")) host = host.substring(7);
     if (host.startsWith("https://")) host = host.substring(8);
     String domain = protocol + host;
-    domain = domain + ":" + options.port.toString();
+    domain = domain + ":" + (options.encrypted ? "443" : "80");
     Pusher.log('Connecting to ' + domain);
     webSocketChannel = IOWebSocketChannel.connect(domain + '/app/$apiKey', pingInterval: options.pingInterval);
     webSocketChannel!.stream.listen(_handleMessage, onDone: () {

@@ -17,7 +17,7 @@ class PresenceChannel extends Channel {
       if (data.containsKey("auth")) auth = data["auth"];
       if (data.containsKey("channel_data")) {
         channel_data = data["channel_data"];
-        members.setMyID(jsonDecode(channel_data!)["user_id"]);
+        members.setMyID(int.parse(jsonDecode(channel_data!)["user_id"]));
       }
     } catch (e) {
       print("Error: ${e.toString()}");
