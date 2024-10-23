@@ -9,4 +9,4 @@ environment:
 dependencies:
   web_socket_channel: ^2.2.0
   http: ^0.13.5
-  meta: 1.15.0
+  meta: 1.12.0
