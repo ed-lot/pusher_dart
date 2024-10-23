@@ -17,7 +17,7 @@ class PresenceChannel extends Channel {
       if (data.containsKey("auth")) auth = data["auth"];
       if (data.containsKey("channel_data")) {
         channel_data = data["channel_data"];
-        members.setMyID(int.parse(jsonDecode(channel_data!)["user_id"]));
+        members.setMyID(int.parse(jsonDecode(channel_data!)["user_id"].toString()));
       }
     } catch (e) {
       print("Error: ${e.toString()}");
@@ -36,7 +36,12 @@ class PresenceChannel extends Channel {
 
   _handleInternalEvent(Map<String, dynamic> message) {
     var eventName = message["event"];
-    var data = jsonDecode(message['data'] as String);
+    var data;
+    if (message['data'] is! Map<String, dynamic>) {
+      data = jsonDecode(message['data'] as String);
+    } else {
+      data = message['data'];
+    }
     switch (eventName) {
       case 'pusher_internal:subscription_succeeded':
         this.members.onSubscription(data);
@@ -77,17 +82,18 @@ class Members {
 
   /** Adds a new member to the collection. For internal use only. */
   addMember(memberData) {
+    int memberId = int.parse(memberData["user_id"].toString());
     bool exist = this.members.contains((member) {
-      return member.id == memberData["user_id"];
+      return member.id == memberId;
     });
     if (!exist) {
       this.count++;
-      Member m = Member(memberData["user_id"], memberData["user_info"]);
+      Member m = Member(memberId, memberData["user_info"]);
       this.members.add(m);
       return m;
     } else {
       Member m = this.members.firstWhere((member) {
-        return member.id == memberData["user_id"];
+        return member.id == memberId;
       });
       m.info = memberData["user_info"];
       return m;
@@ -96,8 +102,9 @@ class Members {
 
   /** Adds a member from the collection. For internal use only. */
   removeMember(memberData) {
+    int memberId = int.parse(memberData["user_id"].toString());
     int index = this.members.indexWhere((member) {
-      return member.id == memberData["user_id"];
+      return member.id == memberId;
     });
     if (index != null) {
       Member member = this.members.removeAt(index);
