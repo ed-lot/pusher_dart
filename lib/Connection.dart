@@ -26,6 +26,22 @@ class Connection with EventEmitter {
   final Map<String, Channel> channels = {};
   bool _autoReconnection = true;
 
+   // Backoff exponentiel pour les tentatives de reconnexion automatique.
+  //
+  // Quand on perd la connexion (onDone, error de handshake, etc.), on ne
+  // retente pas immédiatement — on attend un délai qui double à chaque échec
+  // pour ne pas marteler le serveur si c'est lui qui est down :
+  //   attempt 1 → 2s, attempt 2 → 4s, attempt 3 → 8s, attempt 4 → 16s,
+  //   attempt 5 → 32s, puis plafonné à 60s.
+  //
+  // Le compteur _reconnectAttempts est remis à 0 quand :
+  //   - une connexion réussit (cf. _resetReconnectBackoff dans _handleMessage)
+  //   - disconnect() est appelé explicitement
+  static const int _baseReconnectSeconds = 2;
+  static const int _maxReconnectSeconds = 60;
+  int _reconnectAttempts = 0;
+  Timer? _reconnectTimer;
+
   /// Default constructor
   Connection({required this.apiKey, required this.options}) {
     if (options.autoConnect) _connect();
@@ -45,16 +61,74 @@ class Connection with EventEmitter {
     String domain = protocol + host;
     domain = domain + ":" + (options.encrypted ? "443" : "80");
     Pusher.log('Connecting to ' + domain);
-    webSocketChannel = IOWebSocketChannel.connect(domain + '/app/$apiKey', pingInterval: options.pingInterval);
-    webSocketChannel!.stream.listen(_handleMessage, onDone: () {
-      this.webSocketChannel!.sink.close();
-      this.state = 'disconnected';
-      super.broadcast('disconnected');
-      if (Pusher.log != null) Pusher.log("$state !");
-      if (this._autoReconnection) this._connect();
-    }, onError: (error) {
-      if (Pusher.log != null) Pusher.log("error : $error");
+
+    try {
+      webSocketChannel = IOWebSocketChannel.connect(
+        domain + '/app/$apiKey',
+        pingInterval: options.pingInterval,
+      );
+    } catch (e) {
+      Pusher.log("Connect failed: $e");
+      _onConnectionLost();
+      return;
+    }
+
+    // Catch les erreurs async du handshake WebSocket sous-jacent
+    // (ex: SocketException quand le réseau est injoignable). Sans ça,
+    // l'erreur s'échappe vers la root zone et reste non gérée → spam.
+    webSocketChannel!.ready.catchError((Object error) {
+      Pusher.log("Connect handshake failed: $error");
+      _onConnectionLost();
     });
+
+    webSocketChannel!.stream.listen(_handleMessage, onDone: () {
+      try {
+        this.webSocketChannel!.sink.close();
+      } catch (_) {}
+      _onConnectionLost();
+    }, onError: (error) {
+      Pusher.log("error : $error");
+    });
+  }
+
+  void _onConnectionLost() {
+    if (state == 'disconnected') return;
+    state = 'disconnected';
+    super.broadcast('disconnected');
+    Pusher.log("$state !");
+    if (_autoReconnection) _scheduleReconnect();
+  }
+
+  // Programme la prochaine tentative de reconnexion. On annule un éventuel
+  // timer en attente (cas où plusieurs erreurs successives déclenchent
+  // _onConnectionLost) avant d'en planifier un nouveau.
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    final delay = _computeBackoffDelay();
+    Pusher.log(
+        "Reconnecting in ${delay.inSeconds}s (attempt ${_reconnectAttempts + 1})");
+    _reconnectTimer = Timer(delay, () {
+      _reconnectAttempts++;
+      _connect();
+    });
+  }
+
+  // Calcule le délai d'attente : 2 << attempts secondes, plafonné à 60s.
+  // Le clamp sur shift à 5 évite que le bit-shift dépasse la capacité int.
+  Duration _computeBackoffDelay() {
+    final shift = _reconnectAttempts.clamp(0, 5);
+    final seconds = (_baseReconnectSeconds << shift)
+        .clamp(_baseReconnectSeconds, _maxReconnectSeconds);
+    return Duration(seconds: seconds);
+  }
+
+  // Reset complet du backoff : appelé quand on a une connexion réussie
+  // (pour repartir de 2s la prochaine fois) ou quand on disconnect
+  // explicitement (pour ne pas relancer une tentative après).
+  void _resetReconnectBackoff() {
+    _reconnectAttempts = 0;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
   }
 
   /// Authenticate a specific channel
@@ -100,6 +174,7 @@ class Connection with EventEmitter {
       case 'pusher:connection_established':
         socketId = data!['socket_id'];
         state = 'connected';
+        _resetReconnectBackoff();
         Pusher.log("$state !");
         super.broadcast('connected', data);
         _subscribeAll();
@@ -131,6 +206,7 @@ class Connection with EventEmitter {
   Future disconnect() async {
     Pusher.log("Disconnect called");
     this._autoReconnection = false;
+    _resetReconnectBackoff();
     return webSocketChannel?.sink.close();
   }
 
